@@ -67,8 +67,7 @@ Composeの既定パスワード（`hairia_dev`）はローカル開発専用で�
 初回マイグレーションには、共有された設計に基づく28テーブルと外部キー、
 一意制約、入力制約、検索用インデックスを定義しています。削除時に関連する
 カルテや履歴が連鎖削除されないよう、外部キーにカスケード削除は設定していません。
-この変更はDBスキーマとアプリ実行基盤を用意するもので、現在の画面のサンプルデータを
-DBへ読み書きするAPIはまだ実装していません。
+画面は `/api` を通してDBへ読み書きします（下記「API」参照）。
 
 ## Javaパッケージの方針
 
@@ -86,3 +85,38 @@ DBへ読み書きするAPIはまだ実装していません。
 認証・認可を実装してから追加してください。
 各機能の空ディレクトリは `.gitkeep` で保持しており、必要な実装を始める際に
 置き換えられます。空の層が不要な機能では、無理に全層を使う必要はありません。
+
+## デモ起動とアカウント
+
+`demo` プロファイル（既定）では `db/demo/V1000__demo_data.sql` のデモデータが投入されます。
+本番では `SPRING_PROFILES_ACTIVE=prod` を指定し、デモデータを入れないでください。
+
+| 種別 | メール | パスワード |
+|---|---|---|
+| 美容師 | stylist@hairia.test（stylist2 / stylist3 もあり） | password123 |
+| お客様 | customer@hairia.test（customer2 / customer3 もあり） | password123 |
+
+お客様は画面から新規登録できます。美容師アカウントは店舗側でDBに発行します。
+美容師が「QRコード」画面で表示した連携コード（10分・1回限り）を、お客様がマイページで入力すると連携されます。
+
+## API（要ログイン: `Authorization: Bearer <token>`）
+
+| 機能 | エンドポイント |
+|---|---|
+| 認証 | `POST /api/auth/signup` `login` `logout` |
+| プロフィール | `GET/PUT /api/me` `GET /api/customers` `GET /api/hairdressers` |
+| QR連携 | `POST /api/qr`（美容師） `POST /api/qr/redeem`（お客様） |
+| カウンセリング・分析 | `POST /api/counselings/analysis`（ロードマップ下書きも作成） |
+| ロードマップ | `GET /api/roadmaps` `POST /api/roadmaps/{customerId}/share` |
+| カルテ | `GET/POST /api/charts` `PUT /api/charts/{id}` `POST /api/charts/{id}/advance` `/share` |
+| チャット | `GET/POST /api/chat/messages` `POST /api/chat/read` |
+| 予約 | `GET/POST /api/reservations` `POST /api/reservations/{id}/cancel` |
+| アンケート | `POST /api/questionnaires/answers` |
+| 操作履歴 | `GET /api/audit`（美容師） |
+
+お客様には共有済みのカルテ・ロードマップだけが返り、美容師メモは返りません。
+AI分析は現在ルールベース（`model_version = rule-v1`）で、`CounselingService` に閉じています。
+
+## 未実装・今後
+パスワード再設定、シミュレーション画像生成、似合う髪色診断、通知、薬剤の構造化（`product_mixtures`）、
+複数店舗をまたぐ予約、QRコードの画像化（現在は連携コード入力）。
