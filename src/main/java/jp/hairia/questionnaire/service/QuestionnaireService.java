@@ -1,5 +1,7 @@
 package jp.hairia.questionnaire.service;
 
+import jp.hairia.notification.service.NotificationService;
+import org.springframework.beans.factory.annotation.Autowired;
 import jp.hairia.common.config.CurrentUser;
 import jp.hairia.common.exception.ApiException;
 import jp.hairia.system.service.AuditService;
@@ -15,6 +17,9 @@ import static jp.hairia.common.validation.Body.str;
 
 @Service
 public class QuestionnaireService {
+    @Autowired
+    private NotificationService notify;
+
     // 画面のキー -> questionnaires.question_type
     private static final Map<String, String> TYPES = Map.of(
             "fade", "FADE", "vol", "VOLUME", "tex", "TEXTURE", "dmg", "DAMAGE", "home", "HOMECARE", "want", "WISH");
@@ -32,7 +37,7 @@ public class QuestionnaireService {
             throw ApiException.forbidden();
         }
         var res = jdbc.queryForList("""
-                select reservation_id from reservations
+                select reservation_id, hairdresser_id from reservations
                 where customer_id = ? and reservation_status <> 'CANCELLED'
                 order by reserved_at desc limit 1""", u.profileId());
         if (res.isEmpty()) {
@@ -45,6 +50,7 @@ public class QuestionnaireService {
                 select questionnaire_id, ?, ?, ? from questionnaires where question_type = ? and salon_id is null""",
                 rid, u.profileId(), str(b, key), type));
         audit.log(u.userId(), "事前アンケート回答");
+        notify.toPartner(u, ((Number) res.get(0).get("hairdresser_id")).longValue(), "SURVEY", "事前アンケートの回答が届きました", "");
     }
 
     /** 直近のアンケート回答。未回答なら null。 */

@@ -1,5 +1,7 @@
 package jp.hairia.chart.service;
 
+import jp.hairia.notification.service.NotificationService;
+import org.springframework.beans.factory.annotation.Autowired;
 import jp.hairia.common.config.CurrentUser;
 import jp.hairia.common.exception.ApiException;
 import jp.hairia.customer.service.ProfileService;
@@ -19,6 +21,9 @@ import static jp.hairia.common.validation.Body.str;
 /** カルテ。状態: 下書き→施術予定→施術実施中→確定→共有済み（画面の st = 0〜4）。 */
 @Service
 public class ChartService {
+    @Autowired
+    private NotificationService notify;
+
     private static final String[] STATUS = {"DRAFT", "PLANNED", "IN_PROGRESS", "CONFIRMED", "SHARED"};
     private static final String[] LABEL = {"下書き", "施術予定", "施術実施中", "確定", "共有済み"};
     private static final String SELECT = """
@@ -112,6 +117,7 @@ public class ChartService {
         jdbc.update("insert into chart_shares(chart_id, shared_by, shared_with, consent_status, shared_at) select ?, ?, c.user_id, 'GRANTED', now() from customers c where c.customer_id = ?",
                 id, u.userId(), cid);
         audit.log(u.userId(), "カルテを共有");
+        notify.toPartner(u, cid, "CHART_SHARED", "カルテが共有されました", "");
     }
 
     private Map<String, Object> own(long id, CurrentUser u) {

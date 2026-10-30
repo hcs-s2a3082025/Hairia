@@ -1,5 +1,7 @@
 package jp.hairia.customer.service;
 
+import jp.hairia.notification.service.NotificationService;
+import org.springframework.beans.factory.annotation.Autowired;
 import jp.hairia.common.config.CurrentUser;
 import jp.hairia.common.config.Tokens;
 import jp.hairia.common.exception.ApiException;
@@ -14,10 +16,14 @@ import java.util.List;
 import java.util.Map;
 
 import static jp.hairia.common.validation.Body.bool;
+import static jp.hairia.common.validation.Body.imageUri;
 import static jp.hairia.common.validation.Body.opt;
 
 @Service
 public class ProfileService {
+    @Autowired
+    private NotificationService notify;
+
     private final JdbcTemplate jdbc;
     private final QuestionnaireService questionnaires;
     private final AuditService audit;
@@ -44,8 +50,8 @@ public class ProfileService {
     @Transactional
     public void updateMe(CurrentUser u, Map<String, Object> b) {
         String av = opt(b, "av");
-        if (av != null && av.length() > 700_000) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "画像が大きすぎます");
+        if (av != null && !av.isEmpty()) {
+            imageUri(av, 700_000);
         }
         if (u.isHairdresser()) {
             jdbc.update("""
@@ -136,5 +142,30 @@ public class ProfileService {
                 : ((Number) ex.get(0).get("link_id")).longValue();
         jdbc.update("insert into chat_rooms(link_id, room_status) select ?, 'ACTIVE' where not exists (select 1 from chat_rooms where link_id = ?)", link, link);
         audit.log(u.userId(), "美容師と連携");
+        notify.toPartner(u, hid, "LINK", "新しいお客様と連携しました", "");
+    }
+
+    /** お客様が美容師との連携を解除する（履歴は残る）。 */
+    @Transactional
+    public void endLink(CurrentUser u, long hairdresserId) {
+        if (u.isHairdresser()) {
+            throw ApiException.forbidden();
+        }
+        int n = jdbc.update("update customer_links set link_status = 'ENDED' where hairdresser_id = ? and customer_id = ? and link_status = 'ACTIVE'",
+                hairdresserId, u.profileId());
+        if (n == 0) {
+            throw new ApiException(HttpStatus.NOT_FOUND, "連携が見つかりません");
+        }
+        audit.log(u.userId(), "美容師との連携を解除");
+        notify.toPartner(u, hairdresserId, "LINK", "お客様が連携を解除しました", "");
+    }
+
+    /** 退会。ログインを停止し、連携を終了する。 */
+    @Transactional
+    public void withdraw(CurrentUser u) {
+        jdbc.update("update users set account_status = 'WITHDRAWN' where user_id = ?", u.userId());
+        jdbc.update("delete from auth_sessions where user_id = ?", u.userId());
+        jdbc.update("update customer_links set link_status = 'ENDED' where " + (u.isHairdresser() ? "hairdresser_id" : "customer_id") + " = ?", u.profileId());
+        audit.log(u.userId(), "退会");
     }
 }

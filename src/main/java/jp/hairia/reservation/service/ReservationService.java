@@ -1,5 +1,7 @@
 package jp.hairia.reservation.service;
 
+import jp.hairia.notification.service.NotificationService;
+import org.springframework.beans.factory.annotation.Autowired;
 import jp.hairia.common.config.CurrentUser;
 import jp.hairia.common.exception.ApiException;
 import jp.hairia.customer.service.ProfileService;
@@ -17,6 +19,9 @@ import static jp.hairia.common.validation.Body.str;
 
 @Service
 public class ReservationService {
+    @Autowired
+    private NotificationService notify;
+
     private final JdbcTemplate jdbc;
     private final ProfileService profile;
     private final AuditService audit;
@@ -52,6 +57,7 @@ public class ReservationService {
             throw new ApiException(HttpStatus.CONFLICT, "予約できる店舗が設定されていません");
         }
         audit.log(u.userId(), "予約");
+        notify.toPartner(u, hid, "RESERVATION", "新しい予約が入りました", str(b, "slot").replace("T", " "));
     }
 
     @Transactional

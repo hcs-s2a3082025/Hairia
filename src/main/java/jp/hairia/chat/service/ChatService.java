@@ -1,5 +1,7 @@
 package jp.hairia.chat.service;
 
+import jp.hairia.notification.service.NotificationService;
+import org.springframework.beans.factory.annotation.Autowired;
 import jp.hairia.common.config.CurrentUser;
 import jp.hairia.common.exception.ApiException;
 import org.springframework.http.HttpStatus;
@@ -11,10 +13,14 @@ import java.util.List;
 import java.util.Map;
 
 import static jp.hairia.common.validation.Body.id;
+import static jp.hairia.common.validation.Body.imageUri;
 import static jp.hairia.common.validation.Body.str;
 
 @Service
 public class ChatService {
+    @Autowired
+    private NotificationService notify;
+
     private final JdbcTemplate jdbc;
 
     public ChatService(JdbcTemplate jdbc) {
@@ -40,15 +46,14 @@ public class ChatService {
     public void send(CurrentUser u, Map<String, Object> b) {
         long room = room(u, id(b, "withId"));
         String text = str(b, "body");
-        String image = b.get("image") instanceof String s && !s.isBlank() ? s : null;
+        String image = imageUri(b.get("image") instanceof String s ? s : null, 1_500_000);
         if (image == null && text.isEmpty()) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "メッセージを入力してください");
         }
-        if (image != null && image.length() > 1_500_000) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "画像が大きすぎます");
-        }
         jdbc.update("insert into chat_messages(chat_room_id, sender_user_id, message_type, message_text, attachment_uri) values(?, ?, ?, ?, ?)",
                 room, u.userId(), image != null ? "IMAGE" : "TEXT", image != null ? null : text, image);
+        notify.toPartner(u, id(b, "withId"), "CHAT", "新着メッセージ",
+                image != null ? "写真が届きました" : (text.length() > 30 ? text.substring(0, 30) + "…" : text));
     }
 
     @Transactional

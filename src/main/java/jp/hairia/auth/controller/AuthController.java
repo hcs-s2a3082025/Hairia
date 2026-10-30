@@ -28,4 +28,14 @@ public class AuthController {
     public void logout(@RequestHeader(value = "Authorization", required = false) String h) {
         auth.logout(h);
     }
+
+    @PostMapping("/password-reset/request")
+    public Map<String, Object> requestReset(@RequestBody Map<String, Object> b) {
+        return auth.requestReset(b);
+    }
+
+    @PostMapping("/password-reset/confirm")
+    public void confirmReset(@RequestBody Map<String, Object> b) {
+        auth.confirmReset(b);
+    }
 }

@@ -1,5 +1,7 @@
 package jp.hairia.roadmap.service;
 
+import jp.hairia.notification.service.NotificationService;
+import org.springframework.beans.factory.annotation.Autowired;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -17,8 +19,13 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import static jp.hairia.common.validation.Body.str;
+
 @Service
 public class RoadmapService {
+    @Autowired
+    private NotificationService notify;
+
     private final JdbcTemplate jdbc;
     private final ObjectMapper om;
     private final ProfileService profile;
@@ -83,6 +90,7 @@ public class RoadmapService {
             throw new ApiException(HttpStatus.CONFLICT, "共有するロードマップがありません");
         }
         audit.log(u.userId(), "ロードマップを共有");
+        notify.toPartner(u, customerId, "ROADMAP_SHARED", "ロードマップが共有されました", "");
     }
 
     private String json(Object o) {
@@ -91,5 +99,31 @@ public class RoadmapService {
         } catch (JsonProcessingException e) {
             throw new IllegalStateException(e);
         }
+    }
+
+    /** 美容師による修正。修正後は下書きに戻し、お客様には再共有まで表示しない。 */
+    @Transactional
+    public void updateSteps(CurrentUser u, long customerId, List<Map<String, Object>> steps) {
+        if (!u.isHairdresser()) {
+            throw ApiException.forbidden();
+        }
+        profile.requireLink(u.profileId(), customerId);
+        var r = jdbc.queryForList("select max(roadmap_id) as id from treatment_roadmaps where customer_id = ? and created_by = ?", customerId, u.profileId());
+        Object rid = r.isEmpty() ? null : r.get(0).get("id");
+        if (rid == null) {
+            throw new ApiException(HttpStatus.CONFLICT, "修正するロードマップがありません");
+        }
+        if (steps.isEmpty() || steps.size() > 12) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "工程は1〜12件で入力してください");
+        }
+        jdbc.update("delete from roadmap_details where roadmap_id = ?", rid);
+        int n = 1;
+        for (Map<String, Object> s : steps) {
+            String t = str(s, "t").isEmpty() ? "（未入力）" : str(s, "t");
+            jdbc.update("insert into roadmap_details(roadmap_id, step_number, planned_treatment, description, step_status) values(?, ?, ?, ?, 'PLANNED')",
+                    rid, n++, t.length() > 100 ? t.substring(0, 100) : t, json(Map.of("w", str(s, "w"), "e", str(s, "e"), "n", str(s, "n"))));
+        }
+        jdbc.update("update treatment_roadmaps set roadmap_status = 'DRAFT' where roadmap_id = ?", rid);
+        audit.log(u.userId(), "ロードマップを修正（再共有が必要）");
     }
 }

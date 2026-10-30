@@ -4,6 +4,7 @@ import jp.hairia.common.config.CurrentUser;
 import jp.hairia.roadmap.service.RoadmapService;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -23,5 +24,10 @@ public class RoadmapController {
     @PostMapping("/{customerId}/share")
     public void share(@RequestAttribute("me") CurrentUser me, @PathVariable long customerId) {
         service.share(me, customerId);
+    }
+
+    @PutMapping("/{customerId}/steps")
+    public void steps(@RequestAttribute("me") CurrentUser me, @PathVariable long customerId, @RequestBody List<Map<String, Object>> steps) {
+        service.updateSteps(me, customerId, steps);
     }
 }

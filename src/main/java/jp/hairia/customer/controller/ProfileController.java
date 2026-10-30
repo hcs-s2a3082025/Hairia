@@ -44,11 +44,21 @@ public class ProfileController {
 
     @PostMapping("/qr")
     public Map<String, Object> createQr(@RequestAttribute("me") CurrentUser me) {
-        return Map.of("token", profile.createQr(me));
+        return Map.of("token", profile.createQr(me), "expiresIn", 600);
     }
 
     @PostMapping("/qr/redeem")
     public void redeem(@RequestAttribute("me") CurrentUser me, @RequestBody Map<String, Object> b) {
         profile.redeemQr(me, str(b, "token"));
+    }
+
+    @PostMapping("/links/{hairdresserId}/end")
+    public void endLink(@RequestAttribute("me") CurrentUser me, @PathVariable long hairdresserId) {
+        profile.endLink(me, hairdresserId);
+    }
+
+    @PostMapping("/me/withdraw")
+    public void withdraw(@RequestAttribute("me") CurrentUser me) {
+        profile.withdraw(me);
     }
 }
