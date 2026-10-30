@@ -11,6 +11,7 @@ small{display:block;color:var(--mu);font-size:11px;line-height:1.7}
 .mk{font-size:84px;text-align:center;color:var(--br);line-height:1;margin-top:90px}.mk span{font-size:22px;vertical-align:top}
 .logo{font-size:26px;text-align:center;color:var(--bd);letter-spacing:6px;margin-top:30px}.logo.sm{font-size:20px;text-align:left;margin:4px 4px 0}.sub{text-align:center;color:var(--mu);font-size:11px;margin:4px 0 20px}
 .wc{display:flex;flex-direction:column;min-height:calc(100vh - 50px)}.grow{flex:1}
+.back{padding:0;border:0;background:transparent;color:var(--br);font:inherit;text-align:left;cursor:pointer}
 .card{background:var(--card);border-radius:28px;padding:20px;box-shadow:0 8px 20px rgba(150,110,110,.12);margin-bottom:14px}.ct{text-align:center}
 label{display:block;font-size:11px;color:var(--mu);margin:12px 0 5px;text-align:left}
 input,select,textarea{width:100%;padding:11px 14px;border:1px solid var(--ln);border-radius:14px;background:var(--card);color:var(--tx);font:inherit}
